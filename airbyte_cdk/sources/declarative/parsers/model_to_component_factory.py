@@ -2193,18 +2193,40 @@ class ModelToComponentFactory:
             stream_response=False if self._emit_connector_builder_messages else True,
         )
 
-    @staticmethod
-    def create_jsonl_decoder(model: JsonlDecoderModel, config: Config, **kwargs: Any) -> Decoder:
+    def create_jsonl_decoder(
+        self, model: JsonlDecoderModel, config: Config, **kwargs: Any
+    ) -> Decoder:
         return CompositeRawDecoder(
-            parser=ModelToComponentFactory._get_parser(model, config), stream_response=True
+            parser=ModelToComponentFactory._get_parser(model, config),
+            stream_response=False if self._emit_connector_builder_messages else True,
         )
 
     def create_gzip_decoder(
         self, model: GzipDecoderModel, config: Config, **kwargs: Any
     ) -> Decoder:
-        return CompositeRawDecoder(
-            parser=ModelToComponentFactory._get_parser(model, config),
-            stream_response=False if self._emit_connector_builder_messages else True,
+        _compressed_response_types = {
+            "gzip",
+            "x-gzip",
+            "gzip, deflate",
+            "x-gzip, deflate",
+            "application/zip",
+            "application/gzip",
+            "application/x-gzip",
+            "application/x-zip-compressed",
+        }
+
+        gzip_parser: GzipParser = ModelToComponentFactory._get_parser(model, config)  # type: ignore  # based on the model, we know this will be a GzipParser
+
+        if self._emit_connector_builder_messages:
+            # This is very surprising but if the response is not streamed,
+            # CompositeRawDecoder calls response.content and the requests library actually uncompress the data as opposed to response.raw,
+            # which uses urllib3 directly and does not uncompress the data.
+            return CompositeRawDecoder(gzip_parser.inner_parser, False)
+
+        return CompositeRawDecoder.by_headers(
+            [({"Content-Encoding", "Content-Type"}, _compressed_response_types, gzip_parser)],
+            stream_response=True,
+            fallback_parser=gzip_parser.inner_parser,
         )
 
     @staticmethod
@@ -2753,7 +2775,10 @@ class ModelToComponentFactory:
             )
             paginator = (
                 self._create_component_from_model(
-                    model=model.download_paginator, decoder=decoder, config=config, url_base=""
+                    model=model.download_paginator,
+                    decoder=decoder,
+                    config=config,
+                    url_base="",
                 )
                 if model.download_paginator
                 else NoPagination(parameters={})
@@ -2870,7 +2895,10 @@ class ModelToComponentFactory:
             model=model.status_extractor, decoder=decoder, config=config, name=name
         )
         download_target_extractor = self._create_component_from_model(
-            model=model.download_target_extractor, decoder=decoder, config=config, name=name
+            model=model.download_target_extractor,
+            decoder=decoder,
+            config=config,
+            name=name,
         )
         job_repository: AsyncJobRepository = AsyncHttpJobRepository(
             creation_requester=creation_requester,

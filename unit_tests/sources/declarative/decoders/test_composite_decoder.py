@@ -8,7 +8,8 @@ import socket
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from io import BytesIO, StringIO
 from threading import Thread
-from unittest.mock import patch
+from typing import Iterable
+from unittest.mock import Mock, patch
 
 import pytest
 import requests
@@ -68,6 +69,7 @@ def test_composite_raw_decoder_gzip_csv_parser(requests_mock, encoding: str):
         "GET",
         "https://airbyte.io/",
         content=generate_csv(encoding=encoding, delimiter="\t", should_compress=True),
+        headers={"Content-Encoding": "gzip"},
     )
     response = requests.get("https://airbyte.io/", stream=True)
 
@@ -81,7 +83,7 @@ def test_composite_raw_decoder_gzip_csv_parser(requests_mock, encoding: str):
     assert counter == 3
 
 
-def generate_jsonlines():
+def generate_jsonlines() -> Iterable[str]:
     """
     Generator function to yield data in JSON Lines format.
     This is useful for streaming large datasets.
@@ -107,12 +109,57 @@ def generate_compressed_jsonlines(encoding: str = "utf-8") -> bytes:
 @pytest.mark.parametrize("encoding", ["utf-8", "utf", "iso-8859-1"])
 def test_composite_raw_decoder_gzip_jsonline_parser(requests_mock, encoding: str):
     requests_mock.register_uri(
-        "GET", "https://airbyte.io/", content=generate_compressed_jsonlines(encoding=encoding)
+        "GET",
+        "https://airbyte.io/",
+        content=generate_compressed_jsonlines(encoding=encoding),
     )
     response = requests.get("https://airbyte.io/", stream=True)
 
     parser = GzipParser(inner_parser=JsonLineParser(encoding=encoding))
-    composite_raw_decoder = CompositeRawDecoder(parser=parser)
+    composite_raw_decoder = CompositeRawDecoder(parser)
+    counter = 0
+    for _ in composite_raw_decoder.decode(response):
+        counter += 1
+    assert counter == 3
+
+
+def test_given_header_match_when_decode_then_select_parser(requests_mock):
+    requests_mock.register_uri(
+        "GET",
+        "https://airbyte.io/",
+        content=generate_compressed_jsonlines(),
+        headers={"Content-Encoding": "gzip"},
+    )
+    response = requests.get("https://airbyte.io/", stream=True)
+
+    parser = GzipParser(inner_parser=JsonLineParser())
+    unused_parser = Mock()
+    composite_raw_decoder = CompositeRawDecoder.by_headers(
+        [({"Content-Encoding"}, {"gzip"}, parser)],
+        stream_response=True,
+        fallback_parser=unused_parser,
+    )
+    counter = 0
+    for _ in composite_raw_decoder.decode(response):
+        counter += 1
+    assert counter == 3
+
+
+def test_given_header_does_not_match_when_decode_then_select_fallback_parser(requests_mock):
+    requests_mock.register_uri(
+        "GET",
+        "https://airbyte.io/",
+        content="".join(generate_jsonlines()).encode("utf-8"),
+        headers={"Content-Encoding": "not gzip in order to expect fallback"},
+    )
+    response = requests.get("https://airbyte.io/", stream=True)
+
+    unused_parser = GzipParser(inner_parser=Mock())
+    composite_raw_decoder = CompositeRawDecoder.by_headers(
+        [({"Content-Encoding"}, {"gzip"}, unused_parser)],
+        stream_response=True,
+        fallback_parser=JsonLineParser(),
+    )
     counter = 0
     for _ in composite_raw_decoder.decode(response):
         counter += 1
@@ -266,7 +313,8 @@ def test_given_response_is_not_streamed_when_decode_then_can_be_called_multiple_
     )
     response = requests.get("https://airbyte.io/")
     composite_raw_decoder = CompositeRawDecoder(
-        parser=JsonParser(encoding="utf-8"), stream_response=False
+        parser=JsonParser(encoding="utf-8"),
+        stream_response=False,
     )
 
     content = list(composite_raw_decoder.decode(response))
