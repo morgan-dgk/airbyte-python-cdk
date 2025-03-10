@@ -1758,6 +1758,7 @@ definitions:
         anyOf:
           - "$ref": "#/definitions/JsonDecoder"
           - "$ref": "#/definitions/XmlDecoder"
+          - "$ref": "#/definitions/TextDecoder"
       $parameters:
         type: object
         additionalProperties: true
@@ -2323,6 +2324,16 @@ definitions:
       type:
         type: string
         enum: [XmlDecoder]
+  TextDecoder:
+    title: Text Decoder
+    description: Use this if the response is returned as plain text. This is mostly useful when using the SessionTokenAuthenticator.
+    type: object
+    required:
+      - type
+    properties:
+      type:
+        type: string
+        enum: [TextDecoder]
   CustomDecoder:
     title: Custom Decoder
     description: Use this to implement custom decoder logic.

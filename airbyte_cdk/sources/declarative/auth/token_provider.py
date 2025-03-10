@@ -13,6 +13,7 @@ from isodate import Duration
 
 from airbyte_cdk.sources.declarative.decoders.decoder import Decoder
 from airbyte_cdk.sources.declarative.decoders.json_decoder import JsonDecoder
+from airbyte_cdk.sources.declarative.decoders.text_decoder import TextDecoder
 from airbyte_cdk.sources.declarative.exceptions import ReadException
 from airbyte_cdk.sources.declarative.interpolation.interpolated_string import InterpolatedString
 from airbyte_cdk.sources.declarative.requesters.requester import Requester
@@ -63,7 +64,11 @@ class SessionTokenProvider(TokenProvider):
         )
         if response is None:
             raise ReadException("Failed to get session token, response got ignored by requester")
-        session_token = dpath.get(next(self.decoder.decode(response)), self.session_token_path)
+        session_token = (
+            dpath.get(next(self.decoder.decode(response)), self.session_token_path)
+            if not isinstance(self.decoder, TextDecoder)
+            else response.text
+        )
         if self.expiration_duration is not None:
             self._next_expiration_time = ab_datetime_now() + self.expiration_duration
         self._token = session_token  # type: ignore # Returned decoded response will be Mapping and therefore session_token will be str or None

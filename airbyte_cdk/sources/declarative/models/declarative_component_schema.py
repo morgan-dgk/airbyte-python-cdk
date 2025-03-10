@@ -6,6 +6,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union
 
+from airbyte_cdk.sources.declarative.decoders.text_decoder import TextDecoder
 from pydantic.v1 import BaseModel, Extra, Field
 
 
@@ -2040,7 +2041,7 @@ class SessionTokenAuthenticator(BaseModel):
         ],
         title="Login Requester",
     )
-    session_token_path: List[str] = Field(
+    session_token_path: Optional[List[str]] = Field(
         ...,
         description="The path in the response body returned from the login requester to the session token.",
         examples=[["access_token"], ["result", "token"]],
@@ -2059,7 +2060,7 @@ class SessionTokenAuthenticator(BaseModel):
         description="Authentication method to use for requests sent to the API, specifying how to inject the session token.",
         title="Data Request Authentication",
     )
-    decoder: Optional[Union[JsonDecoder, XmlDecoder]] = Field(
+    decoder: Optional[Union[JsonDecoder, XmlDecoder, TextDecoder]] = Field(
         None, description="Component used to decode the response.", title="Decoder"
     )
     parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
