@@ -2605,7 +2605,7 @@ class ModelToComponentFactory:
         self, model: SelectiveAuthenticatorModel, config: Config, **kwargs: Any
     ) -> DeclarativeAuthenticator:
         authenticators = {
-            name: self._create_component_from_model(model=auth, config=config)
+            name: self._create_component_from_model(model=auth, config=config, **kwargs)
             for name, auth in model.authenticators.items()
         }
         # SelectiveAuthenticator will return instance of DeclarativeAuthenticator or raise ValueError error
