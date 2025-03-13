@@ -2224,6 +2224,11 @@ class DynamicSchemaLoader(BaseModel):
 
 class ParentStreamConfig(BaseModel):
     type: Literal["ParentStreamConfig"]
+    lazy_read_pointer: Optional[List[str]] = Field(
+        [],
+        description="If set, this will enable lazy reading, using the initial read of parent records to extract child records.",
+        title="Lazy Read Pointer",
+    )
     parent_key: str = Field(
         ...,
         description="The primary key of records from the parent stream that will be used during the retrieval of records for the current substream. This parent identifier field is typically a characteristic of the child records being extracted from the source API.",

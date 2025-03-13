@@ -438,6 +438,7 @@ from airbyte_cdk.sources.declarative.resolvers import (
 )
 from airbyte_cdk.sources.declarative.retrievers import (
     AsyncRetriever,
+    LazySimpleRetriever,
     SimpleRetriever,
     SimpleRetrieverTestReadDecorator,
 )
@@ -1750,6 +1751,7 @@ class ModelToComponentFactory:
                 transformations.append(
                     self._create_component_from_model(model=transformation_model, config=config)
                 )
+
         retriever = self._create_component_from_model(
             model=model.retriever,
             config=config,
@@ -1760,6 +1762,7 @@ class ModelToComponentFactory:
             stop_condition_on_cursor=stop_condition_on_cursor,
             client_side_incremental_sync=client_side_incremental_sync,
             transformations=transformations,
+            incremental_sync=model.incremental_sync,
         )
         cursor_field = model.incremental_sync.cursor_field if model.incremental_sync else None
 
@@ -1905,7 +1908,9 @@ class ModelToComponentFactory:
     ) -> Optional[StreamSlicer]:
         retriever_model = model.retriever
 
-        stream_slicer = self._build_stream_slicer_from_partition_router(retriever_model, config)
+        stream_slicer = self._build_stream_slicer_from_partition_router(
+            retriever_model, config, stream_name=model.name
+        )
 
         if retriever_model.type == "AsyncRetriever":
             is_not_datetime_cursor = (
@@ -2530,6 +2535,16 @@ class ModelToComponentFactory:
             if model.request_option
             else None
         )
+
+        if model.lazy_read_pointer and any("*" in pointer for pointer in model.lazy_read_pointer):
+            raise ValueError(
+                "The '*' wildcard in 'lazy_read_pointer' is not supported — only direct paths are allowed."
+            )
+
+        model_lazy_read_pointer: List[Union[InterpolatedString, str]] = (
+            [x for x in model.lazy_read_pointer] if model.lazy_read_pointer else []
+        )
+
         return ParentStreamConfig(
             parent_key=model.parent_key,
             request_option=request_option,
@@ -2539,6 +2554,7 @@ class ModelToComponentFactory:
             incremental_dependency=model.incremental_dependency or False,
             parameters=model.parameters or {},
             extra_fields=model.extra_fields,
+            lazy_read_pointer=model_lazy_read_pointer,
         )
 
     @staticmethod
@@ -2681,6 +2697,12 @@ class ModelToComponentFactory:
         stop_condition_on_cursor: bool = False,
         client_side_incremental_sync: Optional[Dict[str, Any]] = None,
         transformations: List[RecordTransformation],
+        incremental_sync: Optional[
+            Union[
+                IncrementingCountCursorModel, DatetimeBasedCursorModel, CustomIncrementalSyncModel
+            ]
+        ] = None,
+        **kwargs: Any,
     ) -> SimpleRetriever:
         decoder = (
             self._create_component_from_model(model=model.decoder, config=config)
@@ -2737,6 +2759,45 @@ class ModelToComponentFactory:
         ignore_stream_slicer_parameters_on_paginated_requests = (
             model.ignore_stream_slicer_parameters_on_paginated_requests or False
         )
+
+        if (
+            model.partition_router
+            and isinstance(model.partition_router, SubstreamPartitionRouterModel)
+            and not bool(self._connector_state_manager.get_stream_state(name, None))
+            and any(
+                parent_stream_config.lazy_read_pointer
+                for parent_stream_config in model.partition_router.parent_stream_configs
+            )
+        ):
+            if incremental_sync:
+                if incremental_sync.type != "DatetimeBasedCursor":
+                    raise ValueError(
+                        f"LazySimpleRetriever only supports DatetimeBasedCursor. Found: {incremental_sync.type}."
+                    )
+
+                elif incremental_sync.step or incremental_sync.cursor_granularity:
+                    raise ValueError(
+                        f"Found more that one slice per parent. LazySimpleRetriever only supports single slice read for stream - {name}."
+                    )
+
+            if model.decoder and model.decoder.type != "JsonDecoder":
+                raise ValueError(
+                    f"LazySimpleRetriever only supports JsonDecoder. Found: {model.decoder.type}."
+                )
+
+            return LazySimpleRetriever(
+                name=name,
+                paginator=paginator,
+                primary_key=primary_key,
+                requester=requester,
+                record_selector=record_selector,
+                stream_slicer=stream_slicer,
+                request_option_provider=request_options_provider,
+                cursor=cursor,
+                config=config,
+                ignore_stream_slicer_parameters_on_paginated_requests=ignore_stream_slicer_parameters_on_paginated_requests,
+                parameters=model.parameters or {},
+            )
 
         if self._limit_slices_fetched or self._emit_connector_builder_messages:
             return SimpleRetrieverTestReadDecorator(
