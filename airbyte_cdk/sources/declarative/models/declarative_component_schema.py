@@ -1786,6 +1786,10 @@ class RecordSelector(BaseModel):
         description="Responsible for normalization according to the schema.",
         title="Schema Normalization",
     )
+    transform_before_filtering: Optional[bool] = Field(
+        False,
+        description="If true, transformation will be applied before record filtering.",
+    )
     parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
