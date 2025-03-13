@@ -712,7 +712,10 @@ class ModelToComponentFactory:
             )
             for added_field_definition_model in model.fields
         ]
-        return AddFields(fields=added_field_definitions, parameters=model.parameters or {})
+        return AddFields(
+            fields=added_field_definitions,
+            parameters=model.parameters or {},
+        )
 
     def create_keys_to_lower_transformation(
         self, model: KeysToLowerModel, config: Config, **kwargs: Any
@@ -748,6 +751,7 @@ class ModelToComponentFactory:
             delete_origin_value=model.delete_origin_value
             if model.delete_origin_value is not None
             else False,
+            replace_record=model.replace_record if model.replace_record is not None else False,
             parameters=model.parameters or {},
         )
 
