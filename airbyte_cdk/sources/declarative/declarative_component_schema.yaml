@@ -2197,7 +2197,8 @@ definitions:
         type: object
         additionalProperties: true
   JsonDecoder:
-    title: Json Decoder
+    title: JSON
+    description: Select 'JSON' if the response is formatted as a JSON object.
     type: object
     required:
       - type
@@ -2206,8 +2207,8 @@ definitions:
         type: string
         enum: [JsonDecoder]
   JsonlDecoder:
-    title: JSONL Decoder
-    description: Use this if the response consists of JSON objects separated by new lines (`\n`) in JSONL format.
+    title: JSON Lines
+    description: Select 'JSON Lines' if the response consists of JSON objects separated by new lines ('\n') in JSONL format.
     type: object
     required:
       - type
@@ -2332,8 +2333,8 @@ definitions:
         type: object
         additionalProperties: true
   IterableDecoder:
-    title: Iterable Decoder
-    description: Use this if the response consists of strings separated by new lines (`\n`). The Decoder will wrap each row into a JSON object with the `record` key.
+    title: Iterable
+    description: Select 'Iterable' if the response consists of strings separated by new lines (`\n`). The string will then be wrapped into a JSON object with the `record` key.
     type: object
     required:
       - type
@@ -2342,8 +2343,8 @@ definitions:
         type: string
         enum: [IterableDecoder]
   XmlDecoder:
-    title: XML Decoder
-    description: Use this if the response is XML.
+    title: XML
+    description: Select 'XML' if the response consists of XML-formatted data.
     type: object
     required:
       - type
@@ -2374,8 +2375,8 @@ definitions:
         type: object
         additionalProperties: true
   ZipfileDecoder:
-    title: Zipfile Decoder
-    description: Decoder for response data that is returned as zipfile(s).
+    title: ZIP File
+    description: Select 'ZIP file' for response data that is returned as a zipfile. Requires specifying an inner data type/decoder to parse the unzipped data.
     type: object
     additionalProperties: true
     required:
@@ -3281,6 +3282,8 @@ definitions:
         type: object
         additionalProperties: true
   GzipDecoder:
+    title: gzip
+    description: Select 'gzip' for response data that is compressed with gzip. Requires specifying an inner data type/decoder to parse the decompressed data.
     type: object
     required:
       - type
@@ -3296,6 +3299,8 @@ definitions:
           - "$ref": "#/definitions/JsonDecoder"
           - "$ref": "#/definitions/JsonlDecoder"
   CsvDecoder:
+    title: CSV
+    description: "Select 'CSV' for response data that is formatted as CSV (comma-separated values). Can specify an encoding (default: 'utf-8') and a delimiter (default: ',')."
     type: object
     required:
       - type
