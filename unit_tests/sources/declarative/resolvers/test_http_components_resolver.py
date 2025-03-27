@@ -57,6 +57,7 @@ _MANIFEST = {
     "dynamic_streams": [
         {
             "type": "DynamicDeclarativeStream",
+            "name": "TestDynamicStream",
             "stream_template": {
                 "type": "DeclarativeStream",
                 "name": "",
