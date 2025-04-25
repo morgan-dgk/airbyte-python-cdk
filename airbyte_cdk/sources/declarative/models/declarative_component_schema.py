@@ -2209,7 +2209,7 @@ class HttpRequester(BaseModel):
     type: Literal["HttpRequester"]
     url_base: str = Field(
         ...,
-        description="Base URL of the API source. Do not put sensitive information (e.g. API tokens) into this field - Use the Authentication component for this.",
+        description="The Base URL of the API source. Do not put sensitive information (e.g. API tokens) into this field - Use the Authentication component for this.",
         examples=[
             "https://connect.squareup.com/v2",
             "{{ config['base_url'] or 'https://app.posthog.com'}}/api",
@@ -2220,7 +2220,7 @@ class HttpRequester(BaseModel):
     )
     path: Optional[str] = Field(
         None,
-        description="Path the specific API endpoint that this stream represents. Do not put sensitive information (e.g. API tokens) into this field - Use the Authentication component for this.",
+        description="The Path the specific API endpoint that this stream represents. Do not put sensitive information (e.g. API tokens) into this field - Use the Authentication component for this.",
         examples=[
             "/products",
             "/quotes/{{ stream_partition['id'] }}/quote_line_groups",
