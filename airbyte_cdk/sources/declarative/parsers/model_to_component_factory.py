@@ -481,7 +481,13 @@ from airbyte_cdk.sources.declarative.retrievers import (
     SimpleRetriever,
     SimpleRetrieverTestReadDecorator,
 )
-from airbyte_cdk.sources.declarative.retrievers.file_uploader import FileUploader
+from airbyte_cdk.sources.declarative.retrievers.file_uploader import (
+    ConnectorBuilderFileUploader,
+    DefaultFileUploader,
+    FileUploader,
+    LocalFileSystemFileWriter,
+    NoopFileWriter,
+)
 from airbyte_cdk.sources.declarative.schema import (
     ComplexFieldType,
     DefaultSchemaLoader,
@@ -2815,7 +2821,7 @@ class ModelToComponentFactory:
         transformations: List[RecordTransformation] | None = None,
         decoder: Decoder | None = None,
         client_side_incremental_sync: Dict[str, Any] | None = None,
-        file_uploader: Optional[FileUploader] = None,
+        file_uploader: Optional[DefaultFileUploader] = None,
         **kwargs: Any,
     ) -> RecordSelector:
         extractor = self._create_component_from_model(
@@ -2919,7 +2925,7 @@ class ModelToComponentFactory:
         stop_condition_on_cursor: bool = False,
         client_side_incremental_sync: Optional[Dict[str, Any]] = None,
         transformations: List[RecordTransformation],
-        file_uploader: Optional[FileUploader] = None,
+        file_uploader: Optional[DefaultFileUploader] = None,
         incremental_sync: Optional[
             Union[
                 IncrementingCountCursorModel, DatetimeBasedCursorModel, CustomIncrementalSyncModel
@@ -3606,12 +3612,22 @@ class ModelToComponentFactory:
             name=name,
             **kwargs,
         )
-        return FileUploader(
+        emit_connector_builder_messages = self._emit_connector_builder_messages
+        file_uploader = DefaultFileUploader(
             requester=requester,
             download_target_extractor=download_target_extractor,
             config=config,
+            file_writer=NoopFileWriter()
+            if emit_connector_builder_messages
+            else LocalFileSystemFileWriter(),
             parameters=model.parameters or {},
             filename_extractor=model.filename_extractor if model.filename_extractor else None,
+        )
+
+        return (
+            ConnectorBuilderFileUploader(file_uploader)
+            if emit_connector_builder_messages
+            else file_uploader
         )
 
     def create_moving_window_call_rate_policy(
