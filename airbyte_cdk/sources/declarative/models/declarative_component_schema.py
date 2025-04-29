@@ -10,6 +10,10 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic.v1 import BaseModel, Extra, Field
 
+from airbyte_cdk.sources.declarative.models.base_model_with_deprecations import (
+    BaseModelWithDeprecations,
+)
+
 
 class AuthFlowType(Enum):
     oauth2_0 = "oauth2.0"
@@ -1497,6 +1501,11 @@ class ConfigComponentsResolver(BaseModel):
     parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
+class RequestBody(BaseModel):
+    type: Optional[Union[Literal["RequestBodyData"], Literal["RequestBodyJson"]]] = None
+    value: Optional[Union[str, Dict[str, str], Dict[str, Any]]] = None
+
+
 class AddedFieldDefinition(BaseModel):
     type: Literal["AddedFieldDefinition"]
     path: List[str] = Field(
@@ -2207,11 +2216,13 @@ class SessionTokenAuthenticator(BaseModel):
     parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class HttpRequester(BaseModel):
+class HttpRequester(BaseModelWithDeprecations):
     type: Literal["HttpRequester"]
-    url_base: str = Field(
-        ...,
-        description="The Base URL of the API source. Do not put sensitive information (e.g. API tokens) into this field - Use the Authentication component for this.",
+    url_base: Optional[str] = Field(
+        None,
+        deprecated=True,
+        deprecation_message="Use `url` field instead.",
+        description="Deprecated, use the `url` instead. Base URL of the API source. Do not put sensitive information (e.g. API tokens) into this field - Use the Authentication component for this.",
         examples=[
             "https://connect.squareup.com/v2",
             "{{ config['base_url'] or 'https://app.posthog.com'}}/api",
@@ -2220,9 +2231,22 @@ class HttpRequester(BaseModel):
         ],
         title="API Base URL",
     )
+    url: Optional[str] = Field(
+        None,
+        description="The URL of the API source. Do not put sensitive information (e.g. API tokens) into this field - Use the Authentication component for this.",
+        examples=[
+            "https://connect.squareup.com/v2",
+            "{{ config['url'] or 'https://app.posthog.com'}}/api",
+            "https://connect.squareup.com/v2/quotes/{{ stream_partition['id'] }}/quote_line_groups",
+            "https://example.com/api/v1/resource/{{ next_page_token['id'] }}",
+        ],
+        title="The URL of an API endpoint",
+    )
     path: Optional[str] = Field(
         None,
-        description="The Path the specific API endpoint that this stream represents. Do not put sensitive information (e.g. API tokens) into this field - Use the Authentication component for this.",
+        deprecated=True,
+        deprecation_message="Use `url` field instead.",
+        description="Deprecated, use the `url` instead. Path the specific API endpoint that this stream represents. Do not put sensitive information (e.g. API tokens) into this field - Use the Authentication component for this.",
         examples=[
             "/products",
             "/quotes/{{ stream_partition['id'] }}/quote_line_groups",
@@ -2261,6 +2285,8 @@ class HttpRequester(BaseModel):
     )
     request_body_data: Optional[Union[Dict[str, str], str]] = Field(
         None,
+        deprecated=True,
+        deprecation_message="Use `request_body` field instead.",
         description="Specifies how to populate the body of the request with a non-JSON payload. Plain text will be sent as is, whereas objects will be converted to a urlencoded form.",
         examples=[
             '[{"clause": {"type": "timestamp", "operator": 10, "parameters":\n    [{"value": {{ stream_interval[\'start_time\'] | int * 1000 }} }]\n  }, "orderBy": 1, "columnName": "Timestamp"}]/\n'
@@ -2269,6 +2295,8 @@ class HttpRequester(BaseModel):
     )
     request_body_json: Optional[Union[Dict[str, Any], str]] = Field(
         None,
+        deprecated=True,
+        deprecation_message="Use `request_body` field instead.",
         description="Specifies how to populate the body of the request with a JSON payload. Can contain nested objects.",
         examples=[
             {"sort_order": "ASC", "sort_field": "CREATED_AT"},
@@ -2276,6 +2304,27 @@ class HttpRequester(BaseModel):
             {"sort": {"field": "updated_at", "order": "ascending"}},
         ],
         title="Request Body JSON Payload",
+    )
+    request_body: Optional[RequestBody] = Field(
+        None,
+        description="Specifies how to populate the body of the request with a payload. Can contain nested objects.",
+        examples=[
+            {
+                "type": "RequestBodyJson",
+                "value": {"sort_order": "ASC", "sort_field": "CREATED_AT"},
+            },
+            {"type": "RequestBodyJson", "value": {"key": "{{ config['value'] }}"}},
+            {
+                "type": "RequestBodyJson",
+                "value": {"sort": {"field": "updated_at", "order": "ascending"}},
+            },
+            {"type": "RequestBodyData", "value": "plain_text_body"},
+            {
+                "type": "RequestBodyData",
+                "value": {"param1": "value1", "param2": "{{ config['param2_value'] }}"},
+            },
+        ],
+        title="Request Body Payload to be send as a part of the API request.",
     )
     request_headers: Optional[Union[Dict[str, str], str]] = Field(
         None,

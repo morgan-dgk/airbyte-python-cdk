@@ -15,6 +15,9 @@ from jsonschema.exceptions import ValidationError
 from jsonschema.validators import validate
 from packaging.version import InvalidVersion, Version
 
+from airbyte_cdk.connector_builder.models import (
+    LogMessage as ConnectorBuilderLogMessage,
+)
 from airbyte_cdk.manifest_migrations.migration_handler import (
     ManifestMigrationHandler,
 )
@@ -229,6 +232,9 @@ class ManifestDeclarativeSource(DeclarativeSource):
             config=self._config,
             with_dynamic_stream_name=True,
         )
+
+    def deprecation_warnings(self) -> List[ConnectorBuilderLogMessage]:
+        return self._constructor.get_model_deprecations()
 
     @property
     def connection_checker(self) -> ConnectionChecker:
